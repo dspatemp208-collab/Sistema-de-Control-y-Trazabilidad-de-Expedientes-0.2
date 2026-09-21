@@ -1,0 +1,37 @@
+const { chromium } = require('playwright');
+const { pathToFileURL } = require('node:url');
+const path = require('node:path');
+
+(async () => {
+  const browser = await chromium.launch({ headless: true, executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe' });
+  const page = await browser.newPage();
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto(pathToFileURL(path.join(__dirname, 'dist', 'index.html')).href);
+  await page.getByRole('button', { name: 'Agregar expediente' }).click();
+  await page.locator('#f-number').fill('0001');
+  await page.locator('#f-subject').fill('Prueba de control');
+  await page.locator('#f-area').fill('Archivo Central');
+  await page.locator('#f-location').fill('Estante A');
+  await page.locator('#editorForm button[type=submit]').click();
+  await page.locator('.tab[data-view=registro]').click();
+  if (!(await page.locator('#recordRows').innerText()).includes('Prueba de control')) throw new Error('No se registró el expediente');
+  await page.locator('.tab[data-view=solicitudes]').click();
+  await page.getByRole('button', { name: 'Nueva solicitud' }).last().click();
+  await page.locator('#f-recordId').selectOption({ index: 1 });
+  await page.locator('#f-applicant').fill('Persona de prueba');
+  await page.locator('#f-area').fill('DVC');
+  await page.locator('#f-notes').fill('Consulta');
+  await page.locator('#editorForm button[type=submit]').click();
+  if (!(await page.locator('#requestRows').innerText()).includes('Persona de prueba')) throw new Error('No se registró la solicitud');
+  await page.locator('.tab[data-view=resumen]').click();
+  if (!(await page.locator('#view-resumen').isVisible())) throw new Error('No abre Resumen');
+  await page.locator('.tab[data-view=buscador]').click();
+  await page.locator('#globalSearch').fill('0001');
+  if (!(await page.locator('#globalRows').innerText()).includes('Prueba de control')) throw new Error('No busca expedientes');
+  await page.locator('[data-side-type=area][data-side-value="Archivo Central"]').click();
+  if (!(await page.locator('#view-registro').isVisible())) throw new Error('No aplica filtro lateral');
+  if (errors.length) throw new Error(errors.join('\n'));
+  console.log('OK: carga, registro y solicitud');
+  await browser.close();
+})().catch(error => { console.error(error); process.exit(1); });
